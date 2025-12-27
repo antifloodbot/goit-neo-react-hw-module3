@@ -1,62 +1,68 @@
-import { useEffect, useState } from "react";
-import Description from "./components/Description/Description";
-import Options from "./components/Options/Options";
-import Feedback from "./components/Feedback/Feedback";
-import Notification from "./components/Notification/Notification";
+import { useEffect, useMemo, useState } from "react";
+import { nanoid } from "nanoid";
+
+import ContactForm from "./components/ContactForm/ContactForm";
+import SearchBox from "./components/SearchBox/SearchBox";
+import ContactList from "./components/ContactList/ContactList";
+
 import "./App.css";
 
-const initialState = {
-  good: 0,
-  neutral: 0,
-  bad: 0,
-};
+const initialContacts = [
+  { id: "id-1", name: "Rosie Simpson", number: "459-12-56" },
+  { id: "id-2", name: "Hermione Kline", number: "443-89-12" },
+  { id: "id-3", name: "Eden Clements", number: "645-17-79" },
+  { id: "id-4", name: "Annie Copeland", number: "227-91-26" },
+];
+
+const LS_KEY = "contacts";
 
 export default function App() {
-  const [feedback, setFeedback] = useState(() => {
-    const saved = window.localStorage.getItem("feedback");
-    return saved ? JSON.parse(saved) : initialState;
+  const [contacts, setContacts] = useState(() => {
+    const saved = localStorage.getItem(LS_KEY);
+    if (!saved) return initialContacts;
+
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : initialContacts;
+    } catch {
+      return initialContacts;
+    }
   });
 
+  const [filter, setFilter] = useState("");
+
   useEffect(() => {
-    window.localStorage.setItem("feedback", JSON.stringify(feedback));
-  }, [feedback]);
+    localStorage.setItem(LS_KEY, JSON.stringify(contacts));
+  }, [contacts]);
 
-  const updateFeedback = (feedbackType) => {
-    setFeedback((prev) => ({
-      ...prev,
-      [feedbackType]: prev[feedbackType] + 1,
-    }));
+  const handleAddContact = ({ name, number }) => {
+    const newContact = {
+      id: nanoid(),
+      name: name.trim(),
+      number: number.trim(),
+    };
+
+    setContacts((prev) => [newContact, ...prev]);
   };
 
-  const resetFeedback = () => {
-    setFeedback(initialState);
+  const handleDeleteContact = (id) => {
+    setContacts((prev) => prev.filter((contact) => contact.id !== id));
   };
 
-  const totalFeedback = feedback.good + feedback.neutral + feedback.bad;
-  const positiveFeedback =
-    totalFeedback === 0
-      ? 0
-      : Math.round((feedback.good / totalFeedback) * 100);
+  const visibleContacts = useMemo(() => {
+    const normalized = filter.toLowerCase().trim();
+    return contacts.filter((c) => c.name.toLowerCase().includes(normalized));
+  }, [contacts, filter]);
 
   return (
     <div className="app">
-      <Description />
-      <Options
-        updateFeedback={updateFeedback}
-        resetFeedback={resetFeedback}
-        total={totalFeedback}
-      />
-      {totalFeedback > 0 ? (
-        <Feedback
-          good={feedback.good}
-          neutral={feedback.neutral}
-          bad={feedback.bad}
-          total={totalFeedback}
-          positive={positiveFeedback}
-        />
-      ) : (
-        <Notification />
-      )}
+      <h1>Phonebook</h1>
+
+      <ContactForm onAdd={handleAddContact} />
+
+      <SearchBox value={filter} onChange={setFilter} />
+
+      <ContactList contacts={visibleContacts} onDelete={handleDeleteContact} />
     </div>
   );
 }
